@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   
-  <!-- Configurazione PWA per iOS (Fullscreen e Nome Icona) -->
+  <!-- Configurazione PWA per iOS -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Fotocamera">
-  <link rel="apple-touch-icon" href="camera-icon.jpg">
+  <link rel="apple-touch-icon" href="./camera-icon.jpg?v=4">
   <title>Fotocamera</title>
 
   <!-- Librerie A-Frame e MindAR -->
@@ -33,7 +33,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
     }
 
-    /* Specchia il video e il canvas AR per comportarsi come la fotocamera frontale iOS */
+    /* Specchia il video e il canvas AR per la fotocamera frontale */
     #ar-wrapper {
       position: absolute;
       top: 0;
@@ -44,12 +44,11 @@
       z-index: 1;
     }
 
-    /* Nasconde i pulsanti VR/AR di default di A-Frame e il loader di MindAR */
     .a-enter-vr, .a-enter-ar, .mindar-ui-overlay, .mindar-ui-loading, .mindar-ui-scanning {
       display: none !important;
     }
 
-    /* Overlay Interfaccia Fotocamera iOS (NON specchiato) */
+    /* Interfaccia Fotocamera iOS */
     #ios-camera-ui {
       position: absolute;
       top: 0;
@@ -63,7 +62,6 @@
       pointer-events: none;
     }
 
-    /* Barra superiore nera */
     .top-bar {
       width: 100%;
       height: 110px;
@@ -88,7 +86,6 @@
       font-weight: 600;
     }
 
-    /* Area centrale trasparente (Viewfinder) */
     .viewfinder-area {
       flex: 1;
       position: relative;
@@ -98,7 +95,6 @@
       padding-bottom: 18px;
     }
 
-    /* Controlli esposizione/zoom sopra la barra inferiore */
     .zoom-pill {
       width: 38px;
       height: 38px;
@@ -113,9 +109,9 @@
       justify-content: center;
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
+      transition: color 0.15s ease;
     }
 
-    /* Barra inferiore nera */
     .bottom-bar {
       width: 100%;
       height: 195px;
@@ -149,7 +145,6 @@
       padding: 0 34px;
     }
 
-    /* Anteprima galleria in basso a sinistra */
     .gallery-thumb {
       width: 48px;
       height: 48px;
@@ -158,7 +153,6 @@
       border: 1px solid rgba(255, 255, 255, 0.15);
     }
 
-    /* Pulsante di scatto */
     .shutter-outer {
       width: 74px;
       height: 74px;
@@ -182,7 +176,6 @@
       transform: scale(0.9);
     }
 
-    /* Pulsante cambio fotocamera in basso a destra */
     .flip-camera-btn {
       width: 48px;
       height: 48px;
@@ -201,33 +194,27 @@
   <!-- Contenitore AR (Specchiato) -->
   <div id="ar-wrapper">
     <a-scene
-      mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; filterMinCF: 0.001; filterBeta: 0.01; missTolerance: 4; warmupTolerance: 2;"
+      mindar-image="imageTargetSrc: ./targets.mind?v=4; autoStart: false; filterMinCF: 0.001; filterBeta: 0.01; missTolerance: 4; warmupTolerance: 2;"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights: false, alpha: true"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false">
-
-      <a-assets>
-        <img id="six-of-clubs" src="./6_fiori.jpg" crossorigin="anonymous" />
-      </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <!-- Target 0: La Regina di Cuori fisica -->
       <a-entity id="card-target" mindar-image-target="targetIndex: 0">
         <!--
-          scale="1 1.4 1" mantiene il rapporto standard di una carta Poker (63x88mm).
-          scale="-1 1 1" sul piano compensa lo specchiamento CSS del contenitore #ar-wrapper,
-          così i semi e i numeri del 6 di Fiori appaiono dritti e nel verso giusto!
+          scale="-1 1 1" raddrizza l'immagine specchiata.
+          side: double evita che il piano diventi nero o invisibile quando viene girato.
         -->
         <a-plane
           id="fake-card-overlay"
-          src="#six-of-clubs"
           position="0 0 0"
           height="1.42"
           width="1.02"
           scale="-1 1 1"
-          material="shader: flat; transparent: true; opacity: 0.94; color: #eaeaea;">
+          material="src: ./6_fiori.jpg; shader: flat; side: double; transparent: true; opacity: 0.96;">
         </a-plane>
       </a-entity>
 
@@ -236,7 +223,7 @@
 
   <!-- Interfaccia Fotocamera iOS -->
   <div id="ios-camera-ui">
-    <!-- Barra Superiore (Doppio tap qui per resettare il trucco in segreto) -->
+    <!-- Barra Superiore (Doppio tap qui per resettare il trucco) -->
     <div class="top-bar" id="secret-reset-zone">
       <div class="icon-circle">⚡</div>
       <div class="icon-circle">⌃</div>
@@ -244,10 +231,10 @@
     </div>
 
     <div class="viewfinder-area">
-      <div class="zoom-pill">1x</div>
+      <div class="zoom-pill" id="debug-pill">1x</div>
     </div>
 
-    <!-- Barra Inferiore (Tap in qualsiasi punto qui per forzare la sparizione manuale) -->
+    <!-- Barra Inferiore (Tap qui per forzare la sparizione manuale) -->
     <div class="bottom-bar" id="manual-trigger-zone">
       <div class="modes-carousel">
         <span>CINEMA</span>
@@ -267,11 +254,7 @@
   </div>
 
   <script>
-    // =========================================================================
-    // 1. FORZA L'USO DELLA FOTOCAMERA FRONTALE (SELFIE)
-    // MindAR di default richiede "environment" (posteriore). Sovrascriviamo
-    // getUserMedia prima dell'avvio per forzare "user" (frontale).
-    // =========================================================================
+    // 1. Forza l'uso della fotocamera frontale
     const origGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia = function(constraints) {
       if (constraints && constraints.video) {
@@ -284,66 +267,81 @@
       return origGetUserMedia(constraints);
     };
 
-    // =========================================================================
-    // 2. LOGICA DEL TRUCCO E GESTIONE DEGLI STATI
-    // =========================================================================
     document.addEventListener("DOMContentLoaded", () => {
       const sceneEl = document.querySelector('a-scene');
       const targetEl = document.querySelector('#card-target');
       const overlayEl = document.querySelector('#fake-card-overlay');
       const manualZone = document.querySelector('#manual-trigger-zone');
       const resetZone = document.querySelector('#secret-reset-zone');
+      const debugPill = document.querySelector('#debug-pill');
 
       let trickCompleted = false;
       let targetDetectedTime = 0;
       let isTracking = false;
 
-      // Avvia MindAR non appena la scena è pronta
+      // 2. Rilevamento automatico del file del 6 di Fiori (qualunque sia l'estensione su GitHub)
+      const possibleFiles = [
+        './6_fiori.jpg', './6_fiori.JPG',
+        './6_fiori.jpeg', './6_fiori.JPEG',
+        './6_fiori.png', './6_fiori.PNG'
+      ];
+      possibleFiles.forEach(fileUrl => {
+        const testImg = new Image();
+        const cacheBusterUrl = fileUrl + '?v=4';
+        testImg.onload = () => {
+          overlayEl.setAttribute('material', {
+            src: cacheBusterUrl,
+            shader: 'flat',
+            side: 'double',
+            transparent: true,
+            opacity: 0.96
+          });
+        };
+        testImg.src = cacheBusterUrl;
+      });
+
+      // Avvia MindAR
       sceneEl.addEventListener("renderstart", () => {
         const arSystem = sceneEl.systems["mindar-image-system"];
         if (arSystem) arSystem.start();
       });
 
-      // Quando la fotocamera riconosce la Regina di Cuori
+      // Quando la fotocamera riconosce la Donna di Cuori
       targetEl.addEventListener("targetFound", () => {
         if (trickCompleted) return;
         isTracking = true;
         targetDetectedTime = Date.now();
         overlayEl.setAttribute('visible', 'true');
+        // Spia discreta: il testo "1x" diventa leggermente bianco quando aggancia la carta
+        debugPill.style.color = '#ffffff';
       });
 
-      // Quando passi la mano tra la carta e lo schermo (il tracking si interrompe)
+      // Quando passi la mano davanti alla fotocamera
       targetEl.addEventListener("targetLost", () => {
+        debugPill.style.color = '#ffd60a';
         if (trickCompleted || !isTracking) return;
         isTracking = false;
 
         const visibleDuration = Date.now() - targetDetectedTime;
-
-        // Se il 6 di Fiori è stato mostrato allo spettatore per almeno 800ms,
-        // l'interruzione causata dal passaggio della mano fa sparire il 6 di Fiori per sempre!
         if (visibleDuration > 800) {
           vanishOverlay();
         }
       });
 
-      // Funzione che disattiva il 6 di Fiori rivelando la vera Regina di Cuori
       function vanishOverlay() {
         trickCompleted = true;
         overlayEl.setAttribute('visible', 'false');
-        // Feedback aptico leggero se supportato
         if (navigator.vibrate) navigator.vibrate(20);
       }
 
-      // TRIGGER DI SICUREZZA MANUALE:
-      // Toccando un punto qualsiasi della barra nera inferiore, il 6 di Fiori sparisce all'istante
+      // Trigger manuale sulla barra inferiore
       manualZone.addEventListener('touchstart', () => {
         if (!trickCompleted) {
           vanishOverlay();
         }
       });
 
-      // RESET SEGRETO PER RIPETERE IL TRUCCO:
-      // Fai doppio tap sulla barra superiore nera per riattivare l'effetto
+      // Reset segreto con doppio tap sulla barra superiore
       let lastTap = 0;
       resetZone.addEventListener('touchend', () => {
         const now = Date.now();
@@ -358,3 +356,4 @@
   </script>
 </body>
 </html>
+
