@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Fotocamera">
-  <link rel="apple-touch-icon" href="./camera-icon.jpg?v=4">
+  <link rel="apple-touch-icon" href="./camera-icon.jpg?v=5">
   <title>Fotocamera</title>
 
   <!-- Librerie A-Frame e MindAR -->
@@ -33,7 +33,6 @@
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
     }
 
-    /* Specchia il video e il canvas AR per la fotocamera frontale */
     #ar-wrapper {
       position: absolute;
       top: 0;
@@ -48,7 +47,6 @@
       display: none !important;
     }
 
-    /* Interfaccia Fotocamera iOS */
     #ios-camera-ui {
       position: absolute;
       top: 0;
@@ -72,6 +70,7 @@
       padding: 0 24px 14px 24px;
       color: #fff;
       pointer-events: auto;
+      touch-action: none;
     }
 
     .icon-circle {
@@ -96,9 +95,10 @@
     }
 
     .zoom-pill {
-      width: 38px;
+      min-width: 38px;
       height: 38px;
-      border-radius: 50%;
+      padding: 0 8px;
+      border-radius: 19px;
       background: rgba(0, 0, 0, 0.55);
       border: 1px solid rgba(255, 255, 255, 0.2);
       color: #ffd60a;
@@ -121,16 +121,19 @@
       align-items: center;
       padding-top: 14px;
       pointer-events: auto;
+      touch-action: none;
     }
 
     .modes-carousel {
+      width: 100%;
       display: flex;
+      justify-content: center;
       gap: 22px;
       font-size: 13px;
       font-weight: 600;
       letter-spacing: 0.6px;
       color: rgba(255, 255, 255, 0.55);
-      margin-bottom: 24px;
+      padding-bottom: 24px;
     }
 
     .modes-carousel .active-mode {
@@ -161,7 +164,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
     }
 
     .shutter-inner {
@@ -169,11 +171,6 @@
       height: 60px;
       border-radius: 50%;
       background-color: #fff;
-      transition: transform 0.1s ease;
-    }
-
-    .shutter-outer:active .shutter-inner {
-      transform: scale(0.9);
     }
 
     .flip-camera-btn {
@@ -193,28 +190,30 @@
 
   <!-- Contenitore AR (Specchiato) -->
   <div id="ar-wrapper">
+    <!-- warmupTolerance: 0 fa apparire la carta istantaneamente al primo frame -->
     <a-scene
-      mindar-image="imageTargetSrc: ./targets.mind?v=4; autoStart: false; filterMinCF: 0.001; filterBeta: 0.01; missTolerance: 4; warmupTolerance: 2;"
+      mindar-image="imageTargetSrc: ./targets.mind?v=5; autoStart: false; warmupTolerance: 0; missTolerance: 5; filterMinCF: 0.01; filterBeta: 50;"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights: false, alpha: true"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false">
 
+      <a-assets>
+        <img id="six-card-tex" src="./6_fiori.jpg?v=5" crossorigin="anonymous" />
+      </a-assets>
+
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <!-- Target 0: La Regina di Cuori fisica -->
       <a-entity id="card-target" mindar-image-target="targetIndex: 0">
-        <!--
-          scale="-1 1 1" raddrizza l'immagine specchiata.
-          side: double evita che il piano diventi nero o invisibile quando viene girato.
-        -->
         <a-plane
           id="fake-card-overlay"
+          src="#six-card-tex"
           position="0 0 0"
           height="1.42"
           width="1.02"
           scale="-1 1 1"
-          material="src: ./6_fiori.jpg; shader: flat; side: double; transparent: true; opacity: 0.96;">
+          material="shader: flat; side: double; transparent: true; opacity: 0.98;">
         </a-plane>
       </a-entity>
 
@@ -223,8 +222,10 @@
 
   <!-- Interfaccia Fotocamera iOS -->
   <div id="ios-camera-ui">
-    <!-- Barra Superiore (Doppio tap qui per resettare il trucco) -->
-    <div class="top-bar" id="secret-reset-zone">
+    <!-- Barra Superiore:
+         - Doppio tap: Resetta il trucco
+         - Scorri il dito a sinistra/destra: Regola tonalità Fredda/Calda della carta -->
+    <div class="top-bar" id="top-bar-zone">
       <div class="icon-circle">⚡</div>
       <div class="icon-circle">⌃</div>
       <div class="icon-circle">◎</div>
@@ -234,16 +235,18 @@
       <div class="zoom-pill" id="debug-pill">1x</div>
     </div>
 
-    <!-- Barra Inferiore (Tap qui per forzare la sparizione manuale) -->
-    <div class="bottom-bar" id="manual-trigger-zone">
-      <div class="modes-carousel">
+    <!-- Barra Inferiore:
+         - Scorri il dito su FOTO/VIDEO: Regola la luminosità della carta
+         - Tocca la riga del pulsante di scatto: Sparizione manuale immediata -->
+    <div class="bottom-bar">
+      <div class="modes-carousel" id="brightness-slider-zone">
         <span>CINEMA</span>
         <span>VIDEO</span>
         <span class="active-mode">FOTO</span>
         <span>RITRATTO</span>
         <span>PANO</span>
       </div>
-      <div class="shutter-row">
+      <div class="shutter-row" id="manual-trigger-zone">
         <div class="gallery-thumb"></div>
         <div class="shutter-outer">
           <div class="shutter-inner"></div>
@@ -254,14 +257,15 @@
   </div>
 
   <script>
-    // 1. Forza l'uso della fotocamera frontale
+    // 1. Risoluzione ottimizzata per velocizzare il riconoscimento a 60fps
     const origGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia = function(constraints) {
       if (constraints && constraints.video) {
         constraints.video = {
           facingMode: 'user',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: 960 },
+          height: { ideal: 540 },
+          frameRate: { ideal: 60 }
         };
       }
       return origGetUserMedia(constraints);
@@ -272,58 +276,67 @@
       const targetEl = document.querySelector('#card-target');
       const overlayEl = document.querySelector('#fake-card-overlay');
       const manualZone = document.querySelector('#manual-trigger-zone');
-      const resetZone = document.querySelector('#secret-reset-zone');
+      const topBarZone = document.querySelector('#top-bar-zone');
+      const brightnessZone = document.querySelector('#brightness-slider-zone');
       const debugPill = document.querySelector('#debug-pill');
 
       let trickCompleted = false;
       let targetDetectedTime = 0;
       let isTracking = false;
 
-      // 2. Rilevamento automatico del file del 6 di Fiori (qualunque sia l'estensione su GitHub)
-      const possibleFiles = [
-        './6_fiori.jpg', './6_fiori.JPG',
-        './6_fiori.jpeg', './6_fiori.JPEG',
-        './6_fiori.png', './6_fiori.PNG'
-      ];
-      possibleFiles.forEach(fileUrl => {
-        const testImg = new Image();
-        const cacheBusterUrl = fileUrl + '?v=4';
-        testImg.onload = () => {
-          overlayEl.setAttribute('material', {
-            src: cacheBusterUrl,
-            shader: 'flat',
-            side: 'double',
-            transparent: true,
-            opacity: 0.96
-          });
+      // Valori salvati di Luminosità (0.3 - 1.0) e Calore/Giallo (0.0 - 0.5)
+      let cardBrightness = parseFloat(localStorage.getItem('cardBrightness') || '0.82');
+      let cardWarmth = parseFloat(localStorage.getItem('cardWarmth') || '0.12');
+      let pillTimeout = null;
+
+      // Calcola e applica il colore esatto sulla carta
+      function updateCardTone(showIndicator = false) {
+        const r = Math.min(255, Math.round(255 * cardBrightness));
+        const g = Math.min(255, Math.round(255 * cardBrightness * (1 - cardWarmth * 0.28)));
+        const b = Math.min(255, Math.round(255 * cardBrightness * (1 - cardWarmth * 0.65)));
+        const hexColor = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+        
+        overlayEl.setAttribute('material', 'color', hexColor);
+
+        if (showIndicator) {
+          debugPill.textContent = `${Math.round(cardBrightness * 100)}%`;
+          clearTimeout(pillTimeout);
+          pillTimeout = setTimeout(() => { debugPill.textContent = '1x'; }, 900);
+        }
+      }
+
+      updateCardTone(false);
+
+      // Caricamento automatico del file immagine (qualunque estensione abbia)
+      ['./6_fiori.jpg', './6_fiori.JPG', './6_fiori.jpeg', './6_fiori.png'].forEach(fileUrl => {
+        const img = new Image();
+        const url = fileUrl + '?v=5';
+        img.onload = () => {
+          overlayEl.setAttribute('material', 'src', url);
+          updateCardTone(false);
         };
-        testImg.src = cacheBusterUrl;
+        img.src = url;
       });
 
-      // Avvia MindAR
       sceneEl.addEventListener("renderstart", () => {
         const arSystem = sceneEl.systems["mindar-image-system"];
         if (arSystem) arSystem.start();
       });
 
-      // Quando la fotocamera riconosce la Donna di Cuori
       targetEl.addEventListener("targetFound", () => {
         if (trickCompleted) return;
         isTracking = true;
         targetDetectedTime = Date.now();
         overlayEl.setAttribute('visible', 'true');
-        // Spia discreta: il testo "1x" diventa leggermente bianco quando aggancia la carta
         debugPill.style.color = '#ffffff';
       });
 
-      // Quando passi la mano davanti alla fotocamera
       targetEl.addEventListener("targetLost", () => {
         debugPill.style.color = '#ffd60a';
         if (trickCompleted || !isTracking) return;
         isTracking = false;
 
-        const visibleDuration = Date.now() - targetDetectedTime;
-        if (visibleDuration > 800) {
+        if (Date.now() - targetDetectedTime > 650) {
           vanishOverlay();
         }
       });
@@ -334,16 +347,42 @@
         if (navigator.vibrate) navigator.vibrate(20);
       }
 
-      // Trigger manuale sulla barra inferiore
+      // Sparizione manuale toccando la zona del pulsante di scatto
       manualZone.addEventListener('touchstart', () => {
-        if (!trickCompleted) {
-          vanishOverlay();
-        }
+        if (!trickCompleted) vanishOverlay();
       });
 
-      // Reset segreto con doppio tap sulla barra superiore
+      // SLIDER SEGRETO 1: Scorri il dito su "CINEMA VIDEO FOTO..." per regolare la LUMINOSITÀ
+      let startXBright = 0;
+      let initialBright = cardBrightness;
+      brightnessZone.addEventListener('touchstart', (e) => {
+        startXBright = e.touches[0].clientX;
+        initialBright = cardBrightness;
+      });
+      brightnessZone.addEventListener('touchmove', (e) => {
+        const delta = (e.touches[0].clientX - startXBright) / window.innerWidth;
+        cardBrightness = Math.max(0.25, Math.min(1.0, initialBright + delta));
+        localStorage.setItem('cardBrightness', cardBrightness.toFixed(2));
+        updateCardTone(true);
+      });
+
+      // SLIDER SEGRETO 2: Scorri il dito sulla barra superiore per regolare la TONALITÀ (Fredda <-> Calda)
+      // + Doppio tap sulla barra superiore per resettare il trucco
+      let startXWarm = 0;
+      let initialWarm = cardWarmth;
       let lastTap = 0;
-      resetZone.addEventListener('touchend', () => {
+
+      topBarZone.addEventListener('touchstart', (e) => {
+        startXWarm = e.touches[0].clientX;
+        initialWarm = cardWarmth;
+      });
+      topBarZone.addEventListener('touchmove', (e) => {
+        const delta = (e.touches[0].clientX - startXWarm) / window.innerWidth;
+        cardWarmth = Math.max(0.0, Math.min(0.6, initialWarm + delta));
+        localStorage.setItem('cardWarmth', cardWarmth.toFixed(2));
+        updateCardTone(true);
+      });
+      topBarZone.addEventListener('touchend', () => {
         const now = Date.now();
         if (now - lastTap < 350) {
           trickCompleted = false;
@@ -356,4 +395,3 @@
   </script>
 </body>
 </html>
-
